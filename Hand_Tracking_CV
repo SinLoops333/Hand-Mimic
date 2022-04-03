@@ -1,0 +1,104 @@
+import mediapipe
+import cv2
+import math
+import board
+import busio
+import time
+import adafruit_pca9685
+i2c = busio.I2C(board.SCL, board.SDA)
+pca = adafruit_pca9685.PCA9685(i2c)
+from adafruit_servokit import ServoKit
+kit = ServoKit(channels=16)
+import adafruit_motor.servo
+from pyPS4Controller.controller import Controller
+from picamera.array import PiRGBArray
+from picamera import PiCamera
+
+pca.frequency = 25
+
+drawingModule = mediapipe.solutions.drawing_utils
+handsModule = mediapipe.solutions.hands
+
+cap = cv2.VideoCapture(0)
+fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
+
+
+
+#Add confidence values and extra settings to MediaPipe hand tracking. As we are using a live video stream this is not a static
+#image mode, confidence values in regards to overall detection and tracking and we will only let two hands be tracked at the same time
+#More hands can be tracked at the same time if desired but will slow down the system
+with handsModule.Hands(static_image_mode=False, min_detection_confidence=0.7, min_tracking_confidence=0.7, max_num_hands=2) as hands:
+     kit.servo[0].angle = 0
+     while True:
+           kit.servo[0].set_pulse_width_range(100, 2751.75)
+           ret, frame = cap.read()
+           #Unedit the below line if your live feed is produced upsidedown
+           #flipped = cv2.flip(frame, flipCode = -1)
+           
+           frame1 = cv2.resize(frame, (640, 480))
+           
+           results = hands.process(cv2.cvtColor(frame1, cv2.COLOR_BGR2RGB))
+           if results.multi_hand_landmarks != None:
+              for handLandmarks in results.multi_hand_landmarks:
+                  drawingModule.draw_landmarks(frame1, handLandmarks, handsModule.HAND_CONNECTIONS)
+                  
+                  #   Added Code to find Location of Index Finger !!
+                  for point in handsModule.HandLandmark:
+                      normalizedLandmark2 = handLandmarks.landmark[0]
+                      pixelCoordinatesLandmark2= drawingModule._normalized_to_pixel_coordinates(normalizedLandmark2.x, normalizedLandmark2.y, 640, 480)
+                      
+                      normalizedLandmark = handLandmarks.landmark[8]
+                      pixelCoordinatesLandmark= drawingModule._normalized_to_pixel_coordinates(normalizedLandmark.x, normalizedLandmark.y, 640, 480)
+                      
+                      normalizedLandmark1 = handLandmarks.landmark[5]
+                      pixelCoordinatesLandmark1= drawingModule._normalized_to_pixel_coordinates(normalizedLandmark1.x, normalizedLandmark1.y, 640, 480)
+
+                      
+                      if type(pixelCoordinatesLandmark) != type(None) and type(pixelCoordinatesLandmark1) != type(None)and type(pixelCoordinatesLandmark2) != type(None):
+                          y = pixelCoordinatesLandmark1[1] - pixelCoordinatesLandmark[1]
+                          
+                          i = pixelCoordinatesLandmark2[1] - pixelCoordinatesLandmark[1]
+                           
+                          d = math.sqrt((abs(pixelCoordinatesLandmark1[0] - pixelCoordinatesLandmark2[0]))^2 + (abs(pixelCoordinatesLandmark1[1] - pixelCoordinatesLandmark2[1]))^2)
+                          b = math.sqrt((abs(pixelCoordinatesLandmark[0] - pixelCoordinatesLandmark2[0]))^2 + (abs(pixelCoordinatesLandmark[1] - pixelCoordinatesLandmark2[1]))^2)
+                          if b > 25:
+                              scale = 0.8
+                          elif b <= 22 and b > 20:
+                              scale = 1
+                          elif b <= 20 and b > 18:
+                              scale = 1.09
+                          elif b <= 18 and b > 17:
+                              scale = 1.286
+                          elif b <= 17 and b > 15:
+                              scale = 1.8
+                          elif b <= 15 and b > 11.5:
+                              scale = 2.57
+                          elif b <= 11.5 and b > 10:
+                              scale = 3.6
+                          elif b <= 10 and b > 8:
+                              scale = 5.143
+                          elif b <= 8 and b > 1:
+                              scale = 7.66
+                          else:
+                              scale = 8
+                          print(scale * y)
+
+
+                          if y < 0:
+                              kit.servo[0].angle = 180
+                              print(y)
+                          elif y * scale > 180:
+                              kit.servo[0].angle = 0
+                              print(y)
+                          else:             
+                              kit.servo[0].angle = 180 - (y * scale)
+                        
+
+    
+       
+           #Below shows the current frame to the desktop 
+           cv2.imshow("Frame", frame1);
+           key = cv2.waitKey(1) & 0xFF
+           
+           if key == ord("q"):
+              break
