@@ -1,3 +1,9 @@
+
+
+
+
+
+
 import board
 import busio
 import time
@@ -29,12 +35,11 @@ class MyController(Controller):
 
     def on_up_arrow_press(self):
         kit.servo[0].set_pulse_width_range(400, 2430)
-        kit.servo[0].angle = 180
+        kit.servo[0].angle = 0
        # time.sleep(.5)
     def on_down_arrow_press(self):
-        print("Retrun 2")
         kit.servo[0].set_pulse_width_range(400, 2430)
-        kit.servo[0].angle = 0
+        kit.servo[0].angle = 180
        # time.sleep(.5)
        
     def on_left_right_arrow_release(self):
@@ -60,12 +65,6 @@ class MyController(Controller):
 controller = MyController(interface="/dev/input/js0", connecting_using_ds4drv=False)
 controller.listen(timeout=60)
     
-
-
-
-
-
-
 
 
 
